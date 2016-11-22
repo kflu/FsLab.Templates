@@ -3,8 +3,10 @@
 #I "packages/Suave/lib/net40"
 #I "packages/FSharp.Formatting/lib/net40"
 #I "packages/FsLab.Runner/lib/net40"
+#I "packages/HtmlAgilityPack/lib/Net45"
 #r "FsLab.Runner.dll"
 #r "Suave.dll"
+#r "HtmlAgilityPack.dll"
 #r @"packages\Argu\lib\net35\Argu.dll"
 
 open FsLab
@@ -14,6 +16,7 @@ open System.IO
 open System.Diagnostics
 open FSharp.Literate
 open Argu
+open HtmlAgilityPack
 
 type Arguments =
     | [<Mandatory; AltCommandLine("-i"); MainCommand; ExactlyOnce; >] Input of ``script file``: string
@@ -37,6 +40,28 @@ module Utils =
       let builtFiles = Journal.processJournals ctx
       traceImportant "All journals updated."
       Journal.getIndexJournal ctx builtFiles
+    
+    // merge styles/style.css into the HTML to be truely standalone
+    let mergeStyle (htmlFile:string) (styleFile:string) =
+        let html = new HtmlDocument()
+        html.Load(htmlFile)
+        let head = html.DocumentNode.SelectSingleNode("//head")
+        let style = html.CreateElement("style")
+        style.AppendChild(HtmlTextNode.CreateNode(File.ReadAllText(styleFile))) |> ignore
+        head.AppendChild(style) |> ignore
+        html.Save(htmlFile)
+    
+    // merge styles/tips.js into the HTML to be truely standalone
+    let mergeTips (htmlFile:string) (tipsFile:string) =
+        let html = new HtmlDocument()
+        html.Load(htmlFile)
+        let head = html.DocumentNode.SelectSingleNode("//head")
+        let script = html.CreateElement("script")
+        script.SetAttributeValue("language", "javascript") |> ignore
+        script.SetAttributeValue("type", "text/javascript") |> ignore
+        script.AppendChild(HtmlTextNode.CreateNode(File.ReadAllText(tipsFile))) |> ignore
+        head.AppendChild(script) |> ignore
+        html.Save(htmlFile)
 
     let processHtml (source:string) =
         let root = Path.GetDirectoryName source
@@ -50,6 +75,8 @@ module Utils =
               Standalone = true }
 
         let index = generateJournals ctx
+        mergeStyle (ctx.Output </> index) (ctx.Output </> "styles" </> "style.css")
+        mergeTips (ctx.Output </> index) (ctx.Output </> "styles" </> "tips.js")
         printfn "Processed: index: %s ctx: %A" index ctx
         index, ctx
 

@@ -6,3 +6,4 @@ nuget FsLab.Runner
 nuget FAKE
 nuget Suave
 nuget Argu
+nuget HtmlAgilityPack
